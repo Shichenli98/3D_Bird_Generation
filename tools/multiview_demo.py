@@ -1,4 +1,5 @@
 import os
+os.environ["PYOPENGL_PLATFORM"] = "osmesa"
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt

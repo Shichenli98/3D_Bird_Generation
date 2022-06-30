@@ -38,4 +38,5 @@ def evaluate_pck(proj_kpts, keypoints, bboxes=None, size=256):
     
     return PCK05, PCK10
 
-    
+def evaluate_euc(box1, box2):
+    return sum((box1 - box2) ** 2)

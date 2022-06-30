@@ -6,5 +6,5 @@ pyopengl==3.1.0
 pyrender==0.1.32
 yacs
 pycocotools
-torch
-torchvision
+#torch
+#torchvision

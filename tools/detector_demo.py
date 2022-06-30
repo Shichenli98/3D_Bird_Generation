@@ -34,6 +34,7 @@ if __name__ == '__main__':
     model = MaskRCNN(backbone, num_classes=2)
     model.transform = network_transform
     model.eval()
+    # set finetuned weight
     model.load_state_dict(torch.load('models/detector.pth'))
     model.to(device)
 
@@ -54,7 +55,8 @@ if __name__ == '__main__':
     # Run detector
     with torch.no_grad():
         output = model([img.to(device)])[0]
-
+        # output = [boxes, labels, scores, masks]
+    print(output)
     # Visualization
     confident = (output['scores'] > 0.80)
     bird = (output['labels'] == 1)

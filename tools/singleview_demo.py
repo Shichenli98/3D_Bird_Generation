@@ -1,4 +1,5 @@
 import os
+os.environ["PYOPENGL_PLATFORM"] = "osmesa"
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,6 +14,7 @@ from datasets import Cowbird_Dataset
 from keypoint_detection import load_detector, postprocess
 from utils.vis_bird import render_sample
 
+import time
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--root', default='data/cowbird/images', help='Path to image folder')
@@ -22,11 +24,14 @@ parser.add_argument('--use_mask', action='store_true', help='Whether masks are u
 parser.add_argument('--outdir', type=str, default='examples', help='Folder for output images')
 
 if __name__ == '__main__':
+    t_begin = time.time()
     args = parser.parse_args()
 
     # Load model and optimizer
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     bird = bird_model()
+    t_model =time.time()
+    
     predictor = load_detector().to(device)
     regressor = load_regressor().to(device)
     print('Device used:', device)
@@ -41,7 +46,8 @@ if __name__ == '__main__':
     else:
         optimizer = OptimizeSV(num_iters=100, prior_weight=1, mask_weight=1, 
                                use_mask=False, device=device)
-
+    t_load = time.time()
+    
     # Load dataset
     normalize = T.Compose([
         T.ToTensor(),
@@ -53,7 +59,7 @@ if __name__ == '__main__':
         ])
     valid_set = Cowbird_Dataset(args.root, args.annfile, transform=normalize)
 
-
+    t_data = time.time()
     # Run on the indexed sample from the validset
     imgs, target_kpts, target_masks, meta = valid_set[args.index]
     imgs = imgs[None]
@@ -62,12 +68,14 @@ if __name__ == '__main__':
         # Prediction
         output = predictor(imgs.to(device))
         pred_kpts, pred_mask = postprocess(output)
+        t_pred = time.time()
 
         # Regression
         kpts_in = pred_kpts.reshape(pred_kpts.shape[0], -1)
         mask_in = pred_mask
         p_est, b_est = regressor(kpts_in, mask_in)
         pose, tran, bone = regressor.postprocess(p_est, b_est)
+        t_reg = time.time()
 
     # Optimization
     ignored = pred_kpts[:, :, 2] < 0.3
@@ -76,7 +84,14 @@ if __name__ == '__main__':
     pose_op, bone_op, tran_op, model_mesh = optimizer(pose, bone, tran, 
                                           focal_length=2167, camera_center=128, 
                                           keypoints=opt_kpts, masks=mask_in.squeeze(1))
+    t_opt = time.time()
 
+    print("Load model:", t_model - t_begin)
+    print("Load optimizer:", t_load - t_model)
+    print("Load data:", t_data - t_load)
+    print("Predict:", t_pred - t_data)
+    print("Regression:", t_reg - t_pred)
+    print("Optimization:", t_opt - t_reg)
 
     # Save reconstruction results
     if not os.path.exists(args.outdir):
